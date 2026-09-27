@@ -1,7 +1,7 @@
 import TaskItem from './TaskItem'
 import AddTask from './AddTask'
 import ProgressBar from './ProgressBar'
-import { STATUS_LABELS, formatMinutes, taskProgress } from '../lib/progress'
+import { STATUS_LABELS, formatMinutes, taskProgress, taskState } from '../lib/progress'
 
 /** A main task and its subtasks. */
 export default function TaskGroup({ task, dayId }) {
@@ -13,8 +13,8 @@ export default function TaskGroup({ task, dayId }) {
       <div className="row wrap gap between">
         <h3>{task.title}</h3>
         <span className="row gap">
-          <span className={`status-pill ${task.status ?? 'not-started'}`}>
-            {STATUS_LABELS[task.status ?? 'not-started']}
+          <span className={`status-pill ${taskState(task)}`}>
+            {STATUS_LABELS[taskState(task)]}
           </span>
           <span className="muted small">{formatMinutes(task.minutes_spent)} spent</span>
         </span>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePlan } from '../context/PlanContext'
 import TimeControls from './TimeControls'
-import { STATUS_LABELS, carryLabel } from '../lib/progress'
+import { STATUS_LABELS, carryLabel, taskState } from '../lib/progress'
 
 const SAVE_DELAY_MS = 700
 
@@ -15,7 +15,7 @@ export default function TaskItem({ task, isSubtask = false }) {
   const lastSaved = useRef(task.notes ?? '')
   const inputId = `task-${task.id}`
   const carried = carryLabel(task)
-  const status = task.status ?? (task.completed ? 'completed' : 'not-started')
+  const status = taskState(task)
 
   // Save a moment after typing stops, rather than on every keystroke.
   useEffect(() => {

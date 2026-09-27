@@ -39,10 +39,21 @@ export function taskProgress(task) {
 export function statusCounts(days) {
   const counts = { 'not-started': 0, 'in-progress': 0, completed: 0 }
   for (const task of allLeafTasks(days)) {
-    const state = task.status ?? (task.completed ? 'completed' : 'not-started')
-    counts[state] = (counts[state] ?? 0) + 1
+    counts[taskState(task)] += 1
   }
   return counts
+}
+
+/**
+ * A task's state, with `completed` winning over `status`.
+ *
+ * The two travel together and must never contradict each other; trusting
+ * `status` alone once let a ticked task still be counted as in progress.
+ */
+export function taskState(task) {
+  if (task.completed) return 'completed'
+  if (task.status === 'in-progress' || task.started_at) return 'in-progress'
+  return 'not-started'
 }
 
 export function dayStatus(day) {
@@ -52,7 +63,7 @@ export function dayStatus(day) {
   // A day counts as underway as soon as anything on it has been started,
   // not only once something is finished.
   const touched = leaves.some(
-    (t) => t.completed || t.status === 'in-progress' || (t.minutes_spent ?? 0) > 0,
+    (t) => taskState(t) !== 'not-started' || (t.minutes_spent ?? 0) > 0,
   )
   return touched ? 'in-progress' : 'not-started'
 }

@@ -4,6 +4,32 @@ import { useAuth } from './AuthContext'
 
 const PlanContext = createContext(null)
 
+/** The status a leaf task has, given its own completion and start. */
+function leafStatus(task) {
+  if (task.completed) return 'completed'
+  return task.started_at ? 'in-progress' : 'not-started'
+}
+
+/**
+ * Recompute a main task from its subtasks, the same way the server does.
+ *
+ * Without this a parent keeps the completion and status it arrived with,
+ * so ticking a subtask left the main task — and every count derived from
+ * it — showing the old figure until the next reload.
+ */
+function withDerived(task) {
+  if (!task.subtasks?.length) return { ...task, status: leafStatus(task) }
+
+  const subtasks = task.subtasks.map(withDerived)
+  const completed = subtasks.every((s) => s.completed)
+  const status = completed
+    ? 'completed'
+    : subtasks.some((s) => s.status !== 'not-started')
+      ? 'in-progress'
+      : 'not-started'
+  return { ...task, subtasks, completed, status }
+}
+
 /**
  * Apply a patch to one task anywhere in the tree, returning new objects so
  * React sees the change. Ticking a main task ticks its subtasks, matching
@@ -12,13 +38,28 @@ const PlanContext = createContext(null)
 function applyToTree(task, taskId, patch) {
   if (task.id === taskId) {
     const updated = { ...task, ...patch }
-    if ('completed' in patch && task.subtasks?.length) {
-      updated.subtasks = task.subtasks.map((s) => ({ ...s, completed: patch.completed }))
+    if ('completed' in patch) {
+      // Completing something records that it was started, as the server
+      // does, so it can never read "completed but never started".
+      if (patch.completed && !updated.started_at) {
+        updated.started_at = new Date().toISOString()
+      }
+      if (task.subtasks?.length) {
+        updated.subtasks = task.subtasks.map((s) => ({
+          ...s,
+          completed: patch.completed,
+          started_at:
+            patch.completed && !s.started_at ? new Date().toISOString() : s.started_at,
+        }))
+      }
     }
-    return updated
+    return withDerived(updated)
   }
   if (!task.subtasks?.length) return task
-  return { ...task, subtasks: task.subtasks.map((s) => applyToTree(s, taskId, patch)) }
+  return withDerived({
+    ...task,
+    subtasks: task.subtasks.map((s) => applyToTree(s, taskId, patch)),
+  })
 }
 
 export function PlanProvider({ children }) {
