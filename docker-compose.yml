@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: learning-tracker-db
+    environment:
+      POSTGRES_USER: tracker
+      POSTGRES_PASSWORD: tracker
+      POSTGRES_DB: tracker
+    ports:
+      # 5433 on the host so this never collides with a local Postgres on 5432.
+      - "5433:5432"
+    volumes:
+      - tracker-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tracker -d tracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    container_name: learning-tracker-api
+    # Reads JWT_SECRET and CORS_ORIGINS from your local backend/.env.
+    env_file:
+      - ./backend/.env
+    environment:
+      # Overrides the value in .env: inside the compose network the database
+      # is the host "db" on 5432, not localhost:5433.
+      DATABASE_URL: postgresql+psycopg://tracker:tracker@db:5432/tracker
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Live reload during development: your edits are picked up without a
+      # rebuild. Drop this line (and --reload below) for a production image.
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  tracker-pgdata:

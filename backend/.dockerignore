@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Secrets are supplied by compose at run time, never baked into the image.
+.env
