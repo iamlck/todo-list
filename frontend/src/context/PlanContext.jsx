@@ -131,6 +131,21 @@ export function PlanProvider({ children }) {
     [reload],
   )
 
+  /** Add a main task, or a subtask when `parentId` is given. */
+  const addTask = useCallback(
+    async (dayId, title, parentId = null) => {
+      try {
+        await api.addTask(dayId, title, parentId)
+        await reload()
+        setError(null)
+      } catch (err) {
+        setError(err.message)
+        throw err
+      }
+    },
+    [reload],
+  )
+
   const recordTime = useCallback(
     async (taskId, body) => {
       await api.setTime(taskId, body)
@@ -159,6 +174,7 @@ export function PlanProvider({ children }) {
     error,
     setError,
     reload,
+    addTask,
     setCompleted,
     setStarted,
     saveNotes,

@@ -4,6 +4,7 @@ import DayNavigation from './DayNavigation'
 import ProgressBar from './ProgressBar'
 import TaskGroup from './TaskGroup'
 import CarryForward from './CarryForward'
+import AddTask from './AddTask'
 import {
   STATUS_LABELS,
   currentDay,
@@ -53,12 +54,32 @@ export default function DayView() {
       </header>
 
       {day.tasks.length === 0 ? (
-        <p className="muted pad">
-          Nothing planned for this day yet. Add tasks in the{' '}
-          <Link to="/editor">plan editor</Link>.
-        </p>
+        <section className="card stack">
+          <h2>Nothing planned for this day yet</h2>
+          <p className="muted">
+            Add a main task below — a subject or a heading — then put subtasks under it.
+            You can also reshape the whole plan in the{' '}
+            <Link to="/editor">plan editor</Link>.
+          </p>
+          <AddTask
+            dayId={day.id}
+            label="Add a main task"
+            placeholder="A subject or heading, such as Kubernetes…"
+          />
+        </section>
       ) : (
-        day.tasks.map((task) => <TaskGroup key={task.id} task={task} />)
+        <>
+          {day.tasks.map((task) => (
+            <TaskGroup key={task.id} task={task} dayId={day.id} />
+          ))}
+          <section className="card">
+            <AddTask
+              dayId={day.id}
+              label="Add a main task"
+              placeholder="A subject or heading, such as Kubernetes…"
+            />
+          </section>
+        </>
       )}
     </div>
   )

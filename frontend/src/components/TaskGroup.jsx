@@ -1,9 +1,10 @@
 import TaskItem from './TaskItem'
+import AddTask from './AddTask'
 import ProgressBar from './ProgressBar'
 import { STATUS_LABELS, formatMinutes, taskProgress } from '../lib/progress'
 
 /** A main task and its subtasks. */
-export default function TaskGroup({ task }) {
+export default function TaskGroup({ task, dayId }) {
   const progress = taskProgress(task)
   const hasSubtasks = Boolean(task.subtasks?.length)
 
@@ -33,6 +34,13 @@ export default function TaskGroup({ task }) {
           <TaskItem task={task} />
         </ul>
       )}
+
+      <AddTask
+        dayId={dayId}
+        parentId={task.id}
+        label="Add a subtask"
+        placeholder={`Another step for ${task.title}…`}
+      />
     </section>
   )
 }

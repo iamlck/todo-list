@@ -164,6 +164,11 @@ progress, Completed — shown as a small label beside it.
 after you stop typing. A task can have notes while still unticked, and a dot on
 the button shows when notes exist.
 
+**Add something on the spot.** Under each main task there is **+ Add a
+subtask**, and at the foot of the day **+ Add a main task**. Work that comes up
+mid-session goes straight onto the day you are in, without a trip to the plan
+editor. The box stays open after each one so you can add several in a row.
+
 Notes and recorded time stay with a task through renaming, reordering and being
 moved to another day.
 
@@ -216,6 +221,10 @@ Every chart has a **Show as table** option if you would rather read the numbers.
 **Edit plan** lets you reshape everything. Add days, rename them, move them up
 and down, delete them. Open a day to add main tasks and subtasks, rename them,
 reorder them, or remove them.
+
+For adding alone you do not need this page — any day view has **+ Add a
+subtask** and **+ Add a main task** built in. The editor is for renaming,
+reordering, deleting, and changing the shape of the plan as a whole.
 
 Renaming and reordering never affect what you have ticked off, how long it took,
 or the notes you wrote. Deleting does — and you are warned first, with the

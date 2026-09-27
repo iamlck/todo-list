@@ -516,3 +516,8 @@ button.tiny { padding: 0.15rem 0.5rem; font-size: 0.8rem; }
 .data-table th, .data-table td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border); }
 .data-table thead th { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
 .data-table .numeric { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* --- adding tasks inline ---------------------------------------------- */
+
+.add-task-toggle { align-self: flex-start; font-size: 0.88rem; }
+.add-task { margin-top: 0.25rem; }

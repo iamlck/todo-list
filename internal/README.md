@@ -117,6 +117,11 @@ Whichever you choose, everything stays editable under **Edit plan**.
 
 ## Tasks, subtasks and time
 
+Tasks can be added straight from the day you are looking at — **+ Add a
+subtask** under each main task, **+ Add a main task** at the foot of the day —
+so work that comes up mid-session does not need a trip to the editor. The
+editor remains the place to rename, reorder, delete and reshape.
+
 A day holds main tasks; each main task holds subtasks. Ticking every subtask
 completes its main task, and ticking a main task ticks everything under it.
 Progress counts the leaves, so work is never double-counted.
