@@ -303,3 +303,59 @@ def test_deleting_one_account_leaves_others_untouched(client, register):
     )
 
     assert len(plan(client, bob)["days"]) == 20
+
+
+# --- moving to an earlier day -------------------------------------------
+
+
+def test_work_can_be_moved_to_the_previous_day_without_counting_as_carried(client, register):
+    headers = register()
+    days = plan(client, headers)["days"]
+    day2 = days[1]
+
+    result = client.post(
+        f"/me/days/{day2['id']}/carry-forward", json={"direction": "previous"}, headers=headers
+    ).json()
+    assert result["target_day_position"] == 1
+
+    after = plan(client, headers)["days"]
+    assert leaves(after[1]) == []
+    assert all(t["carried_count"] == 0 for t in leaves(after[0]))
+
+    # Undoing it puts the work back, and must not push the count below zero.
+    client.post(
+        "/me/tasks/move",
+        json={"task_ids": result["moved_task_ids"], "target_day_id": day2["id"]},
+        headers=headers,
+    )
+    assert all(t["carried_count"] == 0 for t in leaves(plan(client, headers)["days"][1]))
+
+
+def test_the_first_day_has_no_previous_day(client, register):
+    headers = register()
+    day1 = plan(client, headers)["days"][0]
+    response = client.post(
+        f"/me/days/{day1['id']}/carry-forward", json={"direction": "previous"}, headers=headers
+    )
+    assert response.status_code == 400
+
+
+def test_a_task_without_subtasks_joins_a_same_named_heading_as_a_subtask(client, register):
+    headers = register()
+    days = plan(client, headers)["days"]
+    day1, day2 = days[0], days[1]
+    heading = day2["tasks"][0]["title"]
+    made = client.post(
+        "/me/tasks", json={"day_id": day1["id"], "title": heading}, headers=headers
+    ).json()
+
+    client.post(
+        f"/me/days/{day1['id']}/carry-forward",
+        json={"task_ids": [made["id"]]},
+        headers=headers,
+    )
+
+    target = plan(client, headers)["days"][1]
+    assert [t["title"] for t in target["tasks"]].count(heading) == 1
+    group = next(t for t in target["tasks"] if t["title"] == heading)
+    assert heading in [s["title"] for s in group["subtasks"]]

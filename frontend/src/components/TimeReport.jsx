@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { usePlan } from '../context/PlanContext'
+import ExportData from './ExportData'
+import { exportRows } from '../lib/export'
 import {
+  STATUS_LABELS,
   formatMinutes,
   longestTasks,
   timeByMainTask,
@@ -20,19 +23,21 @@ import {
  * does. A table view sits behind each chart for the same reason.
  */
 export default function TimeReport() {
-  const { days } = usePlan()
+  const { days, startDate } = usePlan()
   const [showTable, setShowTable] = useState(false)
 
   const summary = timeSummary(days)
   const perDay = timePerDay(days)
   const bySubject = timeByMainTask(days).filter((r) => r.minutes > 0)
   const top = longestTasks(days, 10)
+  const rows = exportRows(days, startDate)
 
   if (summary.total === 0) {
     return (
       <div className="pad stack">
         <section className="card stack">
           <h1>Time</h1>
+          <ExportData />
           <p className="muted">
             No time recorded yet. Open a day and press <strong>▶ Start</strong> on a task, or
             click its time to type minutes in directly. <Link to="/">Back to the dashboard</Link>.
@@ -48,7 +53,10 @@ export default function TimeReport() {
   return (
     <div className="pad stack">
       <section className="card stack">
-        <h1>Time</h1>
+        <div className="row wrap gap between">
+          <h1>Time</h1>
+          <ExportData />
+        </div>
         <ul className="stat-tiles">
           <li>
             <strong>{formatMinutes(summary.total)}</strong>
@@ -174,6 +182,44 @@ export default function TimeReport() {
             </tbody>
           </table>
         )}
+      </section>
+
+      <section className="card stack">
+        <h2>All tasks</h2>
+        <p className="muted small">
+          Every task and subtask with its status, time and carry-forward history — the same
+          rows the CSV export contains.
+        </p>
+        <div className="table-scroll">
+          <table className="data-table">
+            <caption className="visually-hidden">Every task in the plan</caption>
+            <thead>
+              <tr>
+                <th scope="col">Day</th>
+                <th scope="col">Task</th>
+                <th scope="col">Status</th>
+                <th scope="col" className="numeric">Time</th>
+                <th scope="col" className="numeric">Carried</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <th scope="row">
+                    <Link to={`/day/${r.day}`}>{r.day}</Link>
+                  </th>
+                  <td>
+                    {r.main_task}
+                    {r.subtask && <span className="muted small"> › {r.subtask}</span>}
+                  </td>
+                  <td>{STATUS_LABELS[r.status]}</td>
+                  <td className="numeric">{formatMinutes(r.minutes_spent)}</td>
+                  <td className="numeric">{r.carried_count || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   )

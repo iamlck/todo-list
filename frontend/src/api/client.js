@@ -118,10 +118,11 @@ export const api = {
   stopTimer: (taskId) => request('POST', `/me/progress/${taskId}/timer/stop`),
 
   // --- carry forward and undo
-  carryForward: (dayId, { taskIds = null, targetDayId = null } = {}) =>
+  carryForward: (dayId, { taskIds = null, targetDayId = null, direction = 'next' } = {}) =>
     request('POST', `/me/days/${dayId}/carry-forward`, {
       task_ids: taskIds,
       target_day_id: targetDayId,
+      direction,
     }),
   moveTasks: (taskIds, targetDayId) =>
     request('POST', '/me/tasks/move', { task_ids: taskIds, target_day_id: targetDayId }),

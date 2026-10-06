@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -239,11 +240,13 @@ class CarryForwardIn(BaseModel):
     """Which tasks to carry forward, and where.
 
     `task_ids` selects them; omitting it carries everything unfinished.
-    `target_day_id` defaults to the next day.
+    `target_day_id` defaults to the next day, or the previous one when
+    `direction` is "previous".
     """
 
     task_ids: list[uuid.UUID] | None = None
     target_day_id: uuid.UUID | None = None
+    direction: Literal["next", "previous"] = "next"
 
 
 class CarryForwardOut(BaseModel):

@@ -5,20 +5,28 @@ import { useUndo } from '../context/UndoContext'
 import { leafTasks } from '../lib/progress'
 
 /**
- * Move unfinished tasks from this day to another one.
+ * Move unfinished tasks from this day to another one (earlier or later), or
+ * delete them.
  *
  * You choose which tasks go: the picker opens with all of them selected,
  * since carrying everything is the common case, but each can be unticked to
  * leave it on this day.
  */
+const PREVIOUS = '__previous'
+
 export default function CarryForward({ day }) {
   const { days, carryForward, reload } = usePlan()
   const { offerUndo } = useUndo()
 
   // Leaves are the real units of work, so those are what you pick from.
   const unfinished = leafTasks(day).filter((t) => !t.completed)
+  // Subtasks are shown with their main task, so you can see where each belongs.
+  const parentTitle = new Map(
+    (day.tasks ?? []).flatMap((m) => (m.subtasks ?? []).map((s) => [s.id, m.title])),
+  )
   const others = days.filter((d) => d.id !== day.id)
   const nextDay = days.find((d) => d.position === day.position + 1)
+  const prevDay = days.find((d) => d.position === day.position - 1)
 
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState(() => new Set())
@@ -57,7 +65,8 @@ export default function CarryForward({ day }) {
     try {
       const result = await carryForward(day.id, {
         taskIds: [...selected],
-        targetDayId: target || null,
+        targetDayId: target && target !== PREVIOUS ? target : null,
+        direction: target === PREVIOUS ? 'previous' : 'next',
       })
       const noun = result.moved === 1 ? 'task' : 'tasks'
       setOpen(false)
@@ -72,11 +81,71 @@ export default function CarryForward({ day }) {
     }
   }
 
+  // Subtasks need their parent's id so a deletion can be restored in place.
+  function snapshotOf(id) {
+    for (const main of day.tasks ?? []) {
+      const item = main.id === id ? main : (main.subtasks ?? []).find((s) => s.id === id)
+      if (!item) continue
+      return {
+        day_id: day.id,
+        parent_id: main.id === id ? null : main.id,
+        title: item.title,
+        position: item.position,
+        completed: item.completed,
+        notes: item.notes ?? '',
+        minutes_spent: item.minutes_spent ?? 0,
+        subtasks: (item.subtasks ?? []).map((s) => ({
+          title: s.title,
+          position: s.position,
+          completed: s.completed,
+          notes: s.notes ?? '',
+          minutes_spent: s.minutes_spent ?? 0,
+        })),
+      }
+    }
+    return null
+  }
+
+  async function remove() {
+    if (selected.size === 0) {
+      setError('Choose at least one task to delete.')
+      return
+    }
+    const noun = selected.size === 1 ? 'task' : 'tasks'
+    if (!window.confirm(`Delete ${selected.size} ${noun}? You can undo this straight afterwards.`)) {
+      return
+    }
+    setBusy(true)
+    setError(null)
+    const snapshots = []
+    try {
+      for (const id of selected) {
+        const snapshot = snapshotOf(id)
+        const result = await api.deleteTask(id)
+        if (snapshot) snapshots.push({ ...snapshot, deleted_log_ids: result?.deleted_log_ids ?? [] })
+      }
+      setOpen(false)
+      await reload()
+      offerUndo(`Deleted ${snapshots.length} ${noun}.`, async () => {
+        // Parents first, so restored subtasks have somewhere to go.
+        for (const s of snapshots.sort((a, b) => (a.parent_id ? 1 : 0) - (b.parent_id ? 1 : 0))) {
+          await api.restoreTask(s)
+        }
+        await reload()
+      })
+    } catch (err) {
+      setError(err.message)
+      await reload()
+    } finally {
+      setBusy(false)
+    }
+  }
+
   if (!open) {
     return (
       <div className="carry">
         <button type="button" className="secondary" onClick={openPicker}>
-          Carry forward…
+          Move or delete…
         </button>
         <span className="muted small">
           {' '}
@@ -89,7 +158,7 @@ export default function CarryForward({ day }) {
   return (
     <div className="carry stack">
       <fieldset className="carry-picker">
-        <legend>Choose the tasks to carry forward</legend>
+        <legend>Choose the tasks</legend>
 
         <div className="row gap wrap carry-actions">
           <button
@@ -118,7 +187,12 @@ export default function CarryForward({ day }) {
                   checked={selected.has(topic.id)}
                   onChange={() => toggle(topic.id)}
                 />
-                <label htmlFor={id}>{topic.title}</label>
+                <label htmlFor={id}>
+                  {parentTitle.has(topic.id) && (
+                    <span className="muted">{parentTitle.get(topic.id)} › </span>
+                  )}
+                  {topic.title}
+                </label>
               </li>
             )
           })}
@@ -134,6 +208,7 @@ export default function CarryForward({ day }) {
           value={target}
           onChange={(e) => setTarget(e.target.value)}
         >
+          {prevDay && <option value={PREVIOUS}>Previous day (Day {prevDay.position})</option>}
           <option value="">
             {nextDay ? `Next day (Day ${nextDay.position})` : 'Next day — none, pick one'}
           </option>
@@ -145,7 +220,10 @@ export default function CarryForward({ day }) {
           ))}
         </select>
         <button type="button" className="primary" onClick={run} disabled={busy}>
-          {busy ? 'Moving…' : `Carry forward ${selected.size}`}
+          {busy ? 'Working…' : `Move ${selected.size}`}
+        </button>
+        <button type="button" className="secondary danger" onClick={remove} disabled={busy}>
+          Delete {selected.size}
         </button>
         <button type="button" className="secondary" onClick={() => setOpen(false)}>
           Cancel

@@ -229,6 +229,17 @@ def carry_forward(
         target = get_owned_day(db, user, body.target_day_id)
         if target.id == day.id:
             raise HTTPException(status_code=400, detail="Pick a different day to move them to")
+    elif body.direction == "previous":
+        target = db.scalar(
+            select(Day)
+            .where(Day.user_id == user.id, Day.position < day.position)
+            .order_by(Day.position.desc())
+            .limit(1)
+        )
+        if target is None:
+            raise HTTPException(
+                status_code=400, detail="This is the first day. Choose a later one."
+            )
     else:
         target = db.scalar(
             select(Day)

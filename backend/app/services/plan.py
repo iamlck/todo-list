@@ -292,7 +292,9 @@ def carry_forward(
 
     A subtask moved on its own is placed under a main task of the same name on
     the target day, created if it is not already there — so "AWS CloudOps"
-    simply continues tomorrow rather than the subtask being orphaned.
+    simply continues tomorrow rather than the subtask being orphaned. A main
+    task without subtasks does the same when the target already has a main task
+    of that name.
     """
     progress = progress_by_task(db, user)
     chosen = {t.id: t for t in day.tasks if t.id in set(task_ids)}
@@ -306,6 +308,9 @@ def carry_forward(
     if not moving:
         return []
 
+    # Moving work to an earlier day is catching up, not slipping, so it adds
+    # nothing to the carried-forward history.
+    forward = target.position > day.position
     now = datetime.now(timezone.utc)
     moved: list[uuid.UUID] = []
     parent_cache: dict[str, Task] = {}
@@ -327,11 +332,12 @@ def carry_forward(
                     sub.day_id = target.id
                     sub.parent_id = existing_main.id
                     sub.position = next_task_position(db, target, existing_main.id)
-                    sub.carried_count += 1
-                    sub.last_carried_from = day.position
-                    sub.last_carried_at = now
-                    if sub.original_day_position is None:
-                        sub.original_day_position = day.position
+                    if forward:
+                        sub.carried_count += 1
+                        sub.last_carried_from = day.position
+                        sub.last_carried_at = now
+                        if sub.original_day_position is None:
+                            sub.original_day_position = day.position
                     moved.append(sub.id)
                 db.flush()
                 # The heading it left behind is now empty, so remove it.
@@ -342,7 +348,10 @@ def carry_forward(
                 continue
 
         if task.parent_id is None:
-            new_parent = None
+            # A main task with no subtasks of its own, carried to a day that
+            # already has a heading of that name, becomes a subtask of it
+            # instead of a second, duplicate heading.
+            new_parent = None if task.subtasks else same_named_main(task.title)
         else:
             # Re-home the subtask under a same-named main task on the target.
             source_parent = db.get(Task, task.parent_id)
@@ -360,20 +369,22 @@ def carry_forward(
         task.day_id = target.id
         task.parent_id = new_parent.id if new_parent else None
         task.position = next_task_position(db, target, task.parent_id)
-        task.carried_count += 1
-        task.last_carried_from = day.position
-        task.last_carried_at = now
-        if task.original_day_position is None:
-            task.original_day_position = day.position
+        if forward:
+            task.carried_count += 1
+            task.last_carried_from = day.position
+            task.last_carried_at = now
+            if task.original_day_position is None:
+                task.original_day_position = day.position
 
         # Subtasks follow their parent to the new day.
         for sub in task.subtasks:
             sub.day_id = target.id
-            sub.carried_count += 1
-            sub.last_carried_from = day.position
-            sub.last_carried_at = now
-            if sub.original_day_position is None:
-                sub.original_day_position = day.position
+            if forward:
+                sub.carried_count += 1
+                sub.last_carried_from = day.position
+                sub.last_carried_at = now
+                if sub.original_day_position is None:
+                    sub.original_day_position = day.position
 
         moved.append(task.id)
 
@@ -394,6 +405,9 @@ def move_tasks(db: Session, tasks: list[Task], target: Day) -> None:
     parent_cache: dict[str, Task] = {}
 
     for task in tasks:
+        # Only undoing a move to a later day has history to roll back.
+        origin = db.get(Day, task.day_id)
+        undoes_carry = origin is not None and target.position < origin.position
         if task.parent_id is None:
             new_parent_id = None
         else:
@@ -413,10 +427,12 @@ def move_tasks(db: Session, tasks: list[Task], target: Day) -> None:
         task.parent_id = new_parent_id
         task.position = next_task_position(db, target, new_parent_id)
         # Undoing a carry-forward should also undo its history entry.
-        task.carried_count = max(0, task.carried_count - 1)
+        if undoes_carry:
+            task.carried_count = max(0, task.carried_count - 1)
         for sub in task.subtasks:
             sub.day_id = target.id
-            sub.carried_count = max(0, sub.carried_count - 1)
+            if undoes_carry:
+                sub.carried_count = max(0, sub.carried_count - 1)
 
     db.flush()
     for day_id in sources:

@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePlan } from '../context/PlanContext'
 import TimeControls from './TimeControls'
+import DeleteTaskButton from './DeleteTaskButton'
 import { STATUS_LABELS, carryLabel, taskState } from '../lib/progress'
 
 const SAVE_DELAY_MS = 700
 
 /** One task row: checkbox, notes, time, and carry-forward history. */
-export default function TaskItem({ task, isSubtask = false }) {
+export default function TaskItem({ task, dayId, parentId = null, isSubtask = false }) {
   const { setCompleted, setStarted, saveNotes } = usePlan()
   const [showNotes, setShowNotes] = useState(Boolean(task.notes))
   const [draft, setDraft] = useState(task.notes ?? '')
@@ -68,6 +69,7 @@ export default function TaskItem({ task, isSubtask = false }) {
         >
           {task.notes ? 'Notes ●' : 'Notes'}
         </button>
+        <DeleteTaskButton task={task} dayId={dayId} parentId={parentId} />
       </div>
 
       {carried && <p className="muted small carried-line">{carried}</p>}

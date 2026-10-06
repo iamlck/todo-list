@@ -1,5 +1,6 @@
 import TaskItem from './TaskItem'
 import AddTask from './AddTask'
+import DeleteTaskButton from './DeleteTaskButton'
 import ProgressBar from './ProgressBar'
 import { STATUS_LABELS, formatMinutes, taskProgress, taskState } from '../lib/progress'
 
@@ -17,6 +18,7 @@ export default function TaskGroup({ task, dayId }) {
             {STATUS_LABELS[taskState(task)]}
           </span>
           <span className="muted small">{formatMinutes(task.minutes_spent)} spent</span>
+          {hasSubtasks && <DeleteTaskButton task={task} dayId={dayId} label="Delete group" />}
         </span>
       </div>
 
@@ -25,13 +27,13 @@ export default function TaskGroup({ task, dayId }) {
       {hasSubtasks ? (
         <ul className="tasks">
           {task.subtasks.map((sub) => (
-            <TaskItem key={sub.id} task={sub} isSubtask />
+            <TaskItem key={sub.id} task={sub} dayId={dayId} parentId={task.id} isSubtask />
           ))}
         </ul>
       ) : (
         // A main task with nothing under it is itself the unit of work.
         <ul className="tasks">
-          <TaskItem task={task} />
+          <TaskItem task={task} dayId={dayId} />
         </ul>
       )}
 
