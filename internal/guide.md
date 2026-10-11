@@ -176,10 +176,16 @@ moved to another day.
 
 ## Carrying work forward
 
-Days rarely go to plan. When one runs out, press **Carry forward…** at the top
+Days rarely go to plan. When one runs out, press **Move or delete…** at the top
 of the day. You get a list of everything unfinished, all ticked to begin with —
-untick whatever should stay, choose which day it moves to (the next one unless
-you say otherwise), and confirm.
+untick whatever should stay, then either move or drop the rest.
+
+**Move to** offers the previous day, the next day, or any other day in the plan.
+Work slips backwards as often as forwards: if you finish early, pull tomorrow's
+list onto today. Press **Move N** to confirm.
+
+**Delete N** removes the selected tasks instead, for things you have decided not
+to do at all. It asks first, and an Undo is offered straight afterwards.
 
 A few things this does deliberately:
 
@@ -206,6 +212,8 @@ The **Time** page gathers everything:
 - **By subject** — main tasks of the same name added up across the whole plan,
   so "AWS CloudOps" gives one figure for all 20 days.
 - **Longest tasks** — the ten individual tasks with the most time on them.
+- **All tasks** — every task and subtask in one table, with its status, time and
+  carry-forward count. The same rows the CSV export contains.
 
 Two notes on the numbers. Main tasks already include their subtasks' time, so
 totals count them once, not twice. And the average covers days you *actually
@@ -213,6 +221,27 @@ worked* — counting untouched days ahead of you would only make the figure
 meaningless.
 
 Every chart has a **Show as table** option if you would rather read the numbers.
+
+### Taking the data with you
+
+At the top of the Time page are **Export CSV** and **Export JSON**. Both download
+immediately — nothing is sent anywhere.
+
+**Export CSV** gives a spreadsheet with one row per task: its day and date, the
+main task and subtask, status, whether it is complete, minutes spent, how many
+times it has been carried forward, which day it was originally planned for, when
+it was started, and its notes. It opens cleanly in Excel, Numbers and Google
+Sheets, accents and all.
+
+**Export JSON** gives the whole plan in its original structure, for feeding into
+something else.
+
+Both are named for today's date, such as `learning-tracker-2026-10-06.csv`.
+
+One thing you may notice: a task whose title begins with `=`, `+`, `-` or `@`
+gains a leading apostrophe in the CSV. That is on purpose — spreadsheets treat
+such text as a formula, and the apostrophe stops it running. Delete it if the
+title really did start that way.
 
 ---
 
@@ -222,9 +251,11 @@ Every chart has a **Show as table** option if you would rather read the numbers.
 and down, delete them. Open a day to add main tasks and subtasks, rename them,
 reorder them, or remove them.
 
-For adding alone you do not need this page — any day view has **+ Add a
-subtask** and **+ Add a main task** built in. The editor is for renaming,
-reordering, deleting, and changing the shape of the plan as a whole.
+For adding and deleting you do not need this page. Any day view has **+ Add a
+subtask** and **+ Add a main task**, a **Delete** on every task row, **Delete
+group** on a main task with subtasks, and **Delete N** in the move-or-delete
+panel for several at once. The editor is for renaming, reordering, and changing
+the shape of the plan as a whole.
 
 Renaming and reordering never affect what you have ticked off, how long it took,
 or the notes you wrote. Deleting does — and you are warned first, with the
@@ -317,6 +348,10 @@ cat backup.sql | docker exec -i learning-tracker-db psql -U tracker tracker
 Worth doing before anything irreversible — deleting an account, or clearing out
 a large part of a plan.
 
+A backup restores the whole app exactly as it was. The **Export** buttons on the
+Time page are a different thing: a readable copy of your plan for a spreadsheet
+or another tool, which cannot be loaded back in.
+
 Your browser only remembers that you are signed in. Clearing browser data signs
 you out and loses nothing else, and signing in from another browser shows
 exactly the same plan.
@@ -333,8 +368,6 @@ Honest limits, so you are not left looking for them:
 - **No mobile app.** The page works on a phone browser, but only on the machine
   running it unless you set that up yourself.
 - **No links or attachments on tasks** — notes are plain text.
-- **No export.** You cannot download your plan as a file yet; the database
-  backup above is the way to keep a copy.
 - **Deleted work is not recoverable** beyond Undo in the moment.
 - **Undo does not survive a reload.**
 

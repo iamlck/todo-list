@@ -117,10 +117,11 @@ Whichever you choose, everything stays editable under **Edit plan**.
 
 ## Tasks, subtasks and time
 
-Tasks can be added straight from the day you are looking at — **+ Add a
-subtask** under each main task, **+ Add a main task** at the foot of the day —
-so work that comes up mid-session does not need a trip to the editor. The
-editor remains the place to rename, reorder, delete and reshape.
+Tasks can be added and deleted straight from the day you are looking at — **+
+Add a subtask** under each main task, **+ Add a main task** at the foot of the
+day, **Delete** on any task row, **Delete group** on a main task with subtasks,
+and **Delete N** in the move-or-delete panel for several at once. The editor
+remains the place to rename, reorder and reshape.
 
 A day holds main tasks; each main task holds subtasks. Ticking every subtask
 completes its main task, and ticking a main task ticks everything under it.
@@ -135,8 +136,14 @@ up from subtasks to their main task and on to the day and the dashboard.
 task heading, under the day's progress bar, and as a total on the dashboard.
 The **Time** page pulls it together: total, days worked, average per day
 worked, busiest day, a bar per day, totals by subject (main tasks of the same
-name added up across the plan), and your longest individual tasks. Each chart
-has a table view, and the per-day chart links straight to that day.
+name added up across the plan), your longest individual tasks, and an **All
+tasks** table. Each chart has a table view, and the per-day chart links straight
+to that day.
+
+**Export CSV** and **Export JSON** at the top of that page download the plan —
+built in the browser, so nothing is sent anywhere. The CSV is one row per task
+with its day, status, time, notes and carry-forward count; it is a readable copy
+for a spreadsheet, not a backup (see *How your progress is stored* below).
 
 **Notes** — every task has a *Notes* toggle. Text saves automatically a moment
 after you stop typing, and a task can carry notes while still unticked.
@@ -157,9 +164,14 @@ once anything on it has been started.
 
 ## Carrying work forward
 
-When a day runs out, the day view offers *Carry forward…*, which lists that
+When a day runs out, the day view offers *Move or delete…*, which lists that
 day's unfinished tasks. Everything starts ticked, so untick whatever should
-stay, choose the destination day (the next one by default), and confirm.
+stay, then either **Move N** or **Delete N**.
+
+The destination can be the **previous** day, the next day (the default), or any
+other day in the plan — work slips backwards as often as forwards. Deleting
+instead is for tasks you have decided against; it confirms first and offers an
+undo.
 
 Selected tasks **move** rather than being copied, so nothing is listed twice and
 the old day can genuinely be completed. Notes and recorded time travel with
@@ -172,7 +184,7 @@ reverses the history entry too.
 
 ## Undo
 
-Carrying work forward, deleting a topic and deleting a day each offer **Undo**
+Carrying work forward, deleting a task and deleting a day each offer **Undo**
 in a bar at the top of the page. Undo restores completion and notes as well as
 the item itself; a restored day goes back in its original slot rather than at
 the end.
@@ -298,6 +310,6 @@ hold data, use Alembic so nothing is lost:
 
 ```bash
 cd backend
-./.venv/bin/alembic revision --autogenerate -m "add notes to topic_progress"
+./.venv/bin/alembic revision --autogenerate -m "add a column to task_progress"
 ./.venv/bin/alembic upgrade head
 ```

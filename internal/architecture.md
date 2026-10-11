@@ -29,14 +29,15 @@ lets an uploaded or hand-built plan use the same model as the default one.
 The original spec described a fixed 15-day plan stored in the browser. Two
 requirements changed that: multiple users, and a plan each user can edit.
 
-So **topic definitions and completion are stored separately**:
+So **task definitions and progress are stored separately**:
 
-- `days` and `topics` describe *what* the plan contains, and belong to a user.
-- `topic_progress` records *what has been ticked off*, keyed by topic id.
+- `days` and `tasks` describe *what* the plan contains, and belong to a user.
+- `task_progress` records *what has been done* — completion, notes and time —
+  keyed by task id.
 
-Because completion is keyed by id rather than by position, renaming or
-reordering a topic cannot disturb it. Only deleting can — and the UI asks the
-server how much completed work a delete would destroy before confirming
+Because progress is keyed by id rather than by position, renaming, reordering or
+carrying a task forward cannot disturb it. Only deleting can — and the UI asks
+the server how much work a delete would destroy before confirming
 (`GET /me/days/{id}/delete-impact`).
 
 A day's number is derived from its `position` column and never stored twice, so
@@ -60,7 +61,7 @@ through. Postgres checks it at `COMMIT` instead.
 ## Isolation between users
 
 Every data endpoint depends on `get_current_user`, and every lookup goes through
-`get_owned_day` / `get_owned_topic` in `backend/app/deps.py`, which filter by
+`get_owned_day` / `get_owned_task` in `backend/app/deps.py`, which filter by
 `user_id`. Ownership is re-checked against the object named in the URL and is
 never inferred from the request body.
 
@@ -109,6 +110,12 @@ day by reassigning their `day_id`. The request names them in `task_ids`;
 omitting it falls back to everything unfinished. Completed tasks are filtered
 out server-side even if named, so finished work is never relocated.
 
+Where they land is decided in one place, in precedence order: an explicit
+`target_day_id` wins; otherwise `direction` picks the neighbouring day, `next`
+(the default) or `previous`. Work slips backwards as often as forwards — a day
+finished early can absorb tomorrow's list — so the same endpoint serves both
+rather than a second one being added for it.
+
 Two details make the result read well rather than merely correct:
 
 - **Merging.** A main task whose name already exists on the target day has its
@@ -117,13 +124,15 @@ Two details make the result read well rather than merely correct:
 - **Re-homing.** A subtask moved on its own is placed under a same-named main
   task on the target, created if absent, rather than being orphaned.
 
-Each moved task records `carried_count`, `last_carried_from`,
-`last_carried_at` and `original_day_position`, which is what the ↷ badge in the
-UI reads. Undoing a carry-forward decrements the count again.
 Moving rather than copying matters: the work is listed once, totals stay
-truthful, and the source day can actually reach "Completed". Because topic ids
-do not change, notes and any future per-topic data travel with them. Positions
-in the source day are then compacted so no gaps remain.
+truthful, and the source day can actually reach "Completed". Because task ids do
+not change, notes and recorded time travel with them. Positions in the source day
+are then compacted so no gaps remain.
+
+Each moved task records `carried_count`, `last_carried_from`, `last_carried_at`
+and `original_day_position`, which is what the ↷ badge in the UI reads. Undoing a
+carry-forward decrements the count again. (`last_carried_at` is stored but not
+returned by the API — nothing displays it yet.)
 
 ## Password reset
 
@@ -146,14 +155,21 @@ email.
 Undo is held in the running page (`UndoContext`), holding one pending action at
 a time. Each undoable action captures what it needs *before* acting:
 
-- **Carry-forward** returns `moved_topic_ids`, and undo posts them back to the
+- **Carry-forward** returns `moved_task_ids`, and undo posts them back to the
   original day. The same rows move, so completion and notes are inherently
   preserved — nothing is copied or recreated.
-- **Deleting a topic or a day** snapshots it client-side first, since the rows
+- **Deleting a task or a day** snapshots it client-side first, since the rows
   are really gone afterwards. Restore recreates them with their completion and
   notes, and puts a day back at its original position rather than appending it.
   Restored items get **new ids**: this is a faithful restore, not a resurrection
   of the original rows.
+
+Deleting several tasks at once is a **client-side loop** over
+`DELETE /me/tasks/{id}`, not a bulk endpoint. Each call returns its
+`deleted_log_ids`, which the page collects so a single undo restores the whole
+set — parents before subtasks, since a subtask needs its parent to exist. A
+batch endpoint would be faster over the wire but would need its own partial-failure
+semantics; looping leaves each delete atomic and independently undoable.
 
 Keeping undo in memory is deliberate. A durable recycle bin would need deleted
 rows, a retention policy and a purge job; the value here is catching a misclick,
@@ -162,7 +178,7 @@ which memory covers. The UI says as much rather than implying more.
 ## Deleting an account
 
 `DELETE /auth/account` removes the user row, and every foreign key cascades
-from it, so no days, topics, progress, notes or reset tokens survive. Two
+from it, so no days, tasks, progress, notes or reset tokens survive. Two
 guards precede it — the current password, and typing the account's own email —
 because there is no undo for this one. A test asserts that the tables are empty
 afterwards and that other accounts are untouched.
@@ -183,6 +199,25 @@ The charts show one measure, minutes, so they use a **single hue** — colour
 carries no meaning, length does, and no categorical palette is involved. Each
 chart has a table view beside it, and bars carry their values as text rather
 than relying on the mark alone.
+
+## Export
+
+`frontend/src/lib/export.js` builds CSV and JSON **entirely in the browser**.
+The page already holds the whole plan, so a server round-trip would fetch data
+it has and add an endpoint to maintain; there is deliberately no export route.
+
+The CSV is one row per unit of work — each subtask, or a main task that has none
+— which is exactly the set progress is counted on, so a spreadsheet of it agrees
+with the dashboard. Two details are easy to mistake for bugs:
+
+- A **UTF-8 BOM** is prepended, because Excel otherwise reads accented characters
+  as mojibake.
+- Values beginning `=`, `+`, `-` or `@` are prefixed with an apostrophe. That is
+  **formula-injection defence**: a task titled `=cmd|...` would otherwise execute
+  as a formula when the file is opened. Numeric values are left alone.
+
+JSON is the raw day/task tree plus `exported_at` and `start_date`, for anything
+that wants the structure rather than a flat table.
 
 ## Task status
 
@@ -245,6 +280,9 @@ the target's email, and cascades through every table the user owns.
 
 ## Deliberate omissions
 
-Deferred, with room left in the schema and API: per-task resource links, JSON
-export/import, a full reset, deeper task nesting, restoring from the deletion
-log, and undo that survives a reload.
+Deferred, with room left in the schema and API: per-task resource links, a full
+reset, deeper task nesting, restoring from the deletion log, undo that survives a
+reload, and a server-side bulk-delete endpoint.
+
+(Export shipped — see *Export* above. Import shipped earlier, as
+`POST /me/plan/setup` with `mode: "import"`.)

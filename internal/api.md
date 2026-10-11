@@ -17,7 +17,7 @@ never 403.
 | POST   | `/auth/forgot-password` | `{email}`       | 202 · always the same reply, whether or not the email is registered. The reset link is written to the API log |
 | POST   | `/auth/reset-password`  | `{token, password}` | 200 · signs the user in. The token is single-use and expires after 30 minutes |
 | POST   | `/auth/change-password` | `{current_password, new_password}` | 204 · requires a valid session and the current password |
-| GET    | `/auth/account-summary` | —                       | `{email, days, topics, completed_topics, notes}` — what a deletion would destroy |
+| GET    | `/auth/account-summary` | —                       | `{email, days, tasks, completed_tasks, notes, minutes_spent}` — what a deletion would destroy |
 | DELETE | `/auth/account`         | `{password, confirm_email}` | 204 · **permanent**. Requires the current password and the account's own email. Cascades to the plan, progress, notes and reset tokens |
 
 Passwords must be at least 8 characters. A duplicate email returns 409. A bad
@@ -46,16 +46,16 @@ subtask; two levels is the whole model.
 
 | Method | Path                 | Query                              | Returns |
 | ------ | -------------------- | ---------------------------------- | ------- |
-| GET    | `/me/deleted-tasks`  | `limit` (≤500), `include_restored` | deleted tasks, newest first, each with title, day, parent, counts, time and `restored_at` |
+| GET    | `/me/deleted-tasks`  | `limit` (default 100, capped at 500), `include_restored` (default true) | deleted tasks, newest first, each with title, day, parent, counts, time and `restored_at` |
 
 ### Carrying work forward and undo
 
 | Method | Path                          | Body                          | Returns |
 | ------ | ----------------------------- | ----------------------------- | ------- |
-| POST   | `/me/days/{id}/carry-forward` | `{task_ids?, target_day_id?}` | `{moved, target_day_position, moved_task_ids}` — **moves** the chosen unfinished tasks. Omit `task_ids` to move everything unfinished; `target_day_id` defaults to the next day. Completed tasks are skipped even if named. 400 on an empty selection, a task from another day, the last day, or the same target day |
+| POST   | `/me/days/{id}/carry-forward` | `{task_ids?, target_day_id?, direction?}` | `{moved, target_day_position, moved_task_ids}` — **moves** the chosen unfinished tasks. Omit `task_ids` to move everything unfinished. `direction` is `next` (default) or `previous`; `target_day_id` overrides it and names a day outright. Completed tasks are skipped even if named. 400 on an empty selection, a task from another day, the last day going `next`, the first day going `previous`, or the same target day |
 | POST   | `/me/tasks/move`              | `{task_ids, target_day_id}`   | 204 · moves specific tasks. Undoes a carry-forward, decrementing the history entry |
 | POST   | `/me/tasks/restore`           | `{deleted_log_ids?, day_id, parent_id?, title, position?, completed?, notes?, minutes_spent?, subtasks[]}` | 201 · recreates a deleted task with its progress. It gets a new id; any `deleted_log_ids` are marked restored |
-| POST   | `/me/days/restore`            | `{title, position?, tasks[]}` | 201 · recreates a deleted day and everything on it |
+| POST   | `/me/days/restore`            | `{deleted_log_ids?, title, position?, tasks[]}` | 201 · recreates a deleted day and everything on it; any `deleted_log_ids` are marked restored |
 
 ## Progress, time and settings
 
@@ -76,7 +76,7 @@ Every route requires an administrator. For an ordinary account they return
 
 | Method | Path                  | Body / query                   | Returns |
 | ------ | --------------------- | ------------------------------ | ------- |
-| GET    | `/admin/users`        | `q` (email filter), `limit` (≤500) | accounts newest first, each with `is_admin`, `created_at`, `onboarded`, `start_date`, `days`, `tasks`, `completed_tasks`, `minutes_spent`, `last_activity`. Counts only — never note contents |
+| GET    | `/admin/users`        | `q` (email filter), `limit` (default 200, capped at 500) | accounts newest first, each with `is_admin`, `created_at`, `onboarded`, `start_date`, `days`, `tasks`, `completed_tasks`, `minutes_spent`, `last_activity`. Counts only — never note contents |
 | GET    | `/admin/users/{id}`   | —                              | the same shape for one account |
 | PATCH  | `/admin/users/{id}`   | `{is_admin}`                   | grants or withdraws rights. 400 on withdrawing your own, or the last administrator's |
 | DELETE | `/admin/users/{id}`   | `{password, confirm_email}`    | 204 · **permanent**. Needs the *administrator's* password and the *target's* email. 400 when deleting yourself — use `/auth/account` |
@@ -87,8 +87,12 @@ Every route requires an administrator. For an ordinary account they return
 
 `GET /health` → `{"status": "ok"}`, unauthenticated.
 
-Each topic in `GET /me/plan` carries a `notes` string, empty when none have been
+Each task in `GET /me/plan` carries a `notes` string, empty when none have been
 written.
+
+**There is no bulk-delete endpoint.** The "delete several at once" control in the
+UI loops over `DELETE /me/tasks/{id}` client-side, collecting each
+`deleted_log_ids` so one undo can restore the whole set.
 
 ## Example
 

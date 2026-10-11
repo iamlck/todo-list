@@ -11,7 +11,8 @@ export default function Signup() {
       action={signUp}
       footer={
         <>
-          You will start with the default 15-day plan, which is yours to edit.
+          Next you will choose how to start: the built-in 20-day plan, a number of
+          empty days, or a spreadsheet you already have. Everything stays editable.
           Already registered? <Link to="/login">Sign in</Link>.
         </>
       }
